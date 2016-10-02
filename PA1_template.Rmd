@@ -1,0 +1,106 @@
+ The Markdown File
+=================================================================================================
+ Loading and Preprocessing the data
+ 
+```{r echo = TRUE}
+require(lubridate)
+activitydata <- read.csv("C:/Big Data and Hadoop/R/R Tutorial/course5 assignments1/activity.csv", stringsAsFactors = FALSE)
+summary(activitydata)
+activitydata$date<- ymd(activitydata$date)
+```
+
+ Mean total number of steps taken per day
+ Calculate the total number of steps taken per day
+ A histogram of the total number of steps taken each day
+ Calculate and report the mean and median of the total number of steps taken per day
+ 
+
+```{r echo=TRUE}
+StepsbyDay<-tapply(activitydata$steps[!is.na(activitydata$steps)],
+              activitydata$date[!is.na(activitydata$steps)],sum)
+
+StepsbyDay
+
+hist(StepsbyDay, main="Histogram of Steps Taken Each Day", xlab="Steps")
+
+StepsbyDayMean<-mean(StepsbyDay[!is.na(StepsbyDay)])
+StepsbyDayMedian<-median(StepsbyDay[!is.na(StepsbyDay)])
+
+barplot(c(StepsbyDayMean,StepsbyDayMedian), 
+        main="Mean/Median of Daily Steps Taken",col = c("red","green"),
+        names.arg=c("Mean","Median"),ylim=c(10760,10770))
+```
+
+The average daily activity pattern
+Time series plot of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
+Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
+
+```{r echo=TRUE}
+dailyactptrn<-tapply(activitydata$steps[!is.na(activitydata$steps)],
+                   activitydata$interval[!is.na(activitydata$steps)],mean)
+
+par(mfrow=c(1,1))
+plot(dailyactptrn, main="Time series of Steps Taken By Interval",type = "l",col="red")
+
+maxInterval=data.frame(dailyactptrn[dailyactptrn==max(dailyactptrn)])
+maxInterval
+
+```
+
+Imputing missing values
+There are a number of days/intervals where there are missing values (coded as NA). The presence of missing days may introduce bias into some calculations or summaries of the data.
+Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
+A new dataset that is equal to the original dataset but with the missing data filled in.
+Histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. 
+
+```{r echo=TRUE}
+intervalNames<-data.frame(rownames(data.frame(dailyactptrn)))
+colnames(intervalNames)<-"interval"
+
+IntervalAverages<-data.frame(c(data.frame(rownames(data.frame(dailyactptrn))),
+                               data.frame(dailyactptrn)))
+colnames(IntervalAverages)<-c("interval","Average_Interval_Steps")
+
+RowsAll=length(activitydata$steps)
+RowsNA=length(activitydata$steps[is.na(activitydata$steps)])
+
+par(mfrow=c(1,1))
+barplot(c(RowsNA,RowsAll), main="Number of Missing Rows",col = c("blue","grey"))
+
+ActivityDataImputed <- merge(activitydata,IntervalAverages,by="interval")
+
+ActivityDataImputed[is.na(ActivityDataImputed$steps),]$steps <-ActivityDataImputed[is.na(ActivityDataImputed$steps),]$Average_Interval_Steps
+
+byDayImputed<-tapply(ActivityDataImputed$steps,ActivityDataImputed$date,sum)
+hist(byDayImputed, main="Steps Taken Each Day With Missing as Avg for each Interval")
+
+byDayMeanImputed<-mean(byDayImputed[!is.na(StepsbyDay)])
+byDayMedianImputed<-median(byDayImputed[!is.na(StepsbyDay)])
+
+par(mfrow=c(1,1))
+barplot(c(byDayMeanImputed,byDayMedianImputed), 
+        main="Mean/Median of Daily Steps and Missing Values as Avg for each Interval",col = c("blue", "green"))
+
+ActivityDataImputed$weekdayInd<-with(ActivityDataImputed, !(weekdays(as.Date(ActivityDataImputed$date))=="Saturday" | weekdays(as.Date(ActivityDataImputed$date))=="Sunday")) 
+
+```
+
+Are there differences in activity patterns between weekdays and weekends
+A new factor variable in the dataset with two levels - "weekday" and "weekend" indicating whether a given date is a weekday or weekend day.
+A panel plot containing a time series plot of the 5-minute interval and the average number of steps taken, averaged across all weekday days or weekend days.
+
+```{r echo=TRUE}
+ActivityDataImputed$TimePeriod[ActivityDataImputed$weekdayInd==0]<-"Weekend"
+ActivityDataImputed$TimePeriod[ActivityDataImputed$weekdayInd==1]<-"Weekday"
+
+library(dplyr)
+
+ActivityDataImputed.grpdata <- group_by(ActivityDataImputed, TimePeriod,interval)
+ActivityDataImputed.grpdata<-summarize(ActivityDataImputed.grpdata, AvgSteps = mean(steps, na.rm = TRUE))
+
+library(lattice)
+xyplot(AvgSteps ~ interval | TimePeriod, data = ActivityDataImputed.grpdata, 
+        layout = c(1, 2),type = "l")
+
+```
+
